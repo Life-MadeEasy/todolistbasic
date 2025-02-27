@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>To-Do List Maker</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4caf50">
+    <link rel="icon" href="icon-192.png">
+   
+</head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f4f4f9;
+        }
+        .container {
+            width: 90%;
+            max-width: 600px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+        }
+        .task-form {
+            margin-bottom: 20px;
+        }
+        .task-form input, .task-form select, .task-form button {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        .task-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .task-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            flex-wrap: wrap;
+        }
+        .task-item.low {
+            border-left: 5px solid #add8e6;
+        }
+        .task-item.medium {
+            border-left: 5px solid #ffd700;
+        }
+        .task-item.high {
+            border-left: 5px solid #ff4500;
+        }
+        .task-item.overdue {
+            background-color: #ffe6e6;
+        }
+        .task-item.completed {
+            background-color: #e6ffe6;
+            text-decoration: line-through;
+        }
+        .task-item button {
+            margin-left: 5px;
+            flex-shrink: 0;
+            font-size: 14px;
+            padding: 5px;
+        }
+        @media (max-width: 400px) {
+            .task-item span {
+                flex: 1 1 100%;
+                margin-bottom: 5px;
+            }
+            .task-item div {
+                display: flex;
+                justify-content: flex-end;
+                flex-wrap: wrap;
+                gap: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>To-Do List Maker</h1>
+        <div class="task-form">
+            <input type="text" id="taskName" placeholder="Task name">
+            <input type="date" id="taskDueDate">
+            <select id="taskPriority">
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+            </select>
+            <select id="taskRecurrence">
+                <option value="none">None</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+            </select>
+            <select id="taskSubtasks">
+                <option value="none">None</option>
+                <option value="exam">Exam</option>
+            </select>            
+            <button onclick="addTask()">Add Task</button>
+        </div>
+        <ul id="taskList" class="task-list"></ul>
+    </div>
+
+    <script>
+        const taskList = JSON.parse(localStorage.getItem('tasks')) || [];
+
+        function saveTasks() {
+            localStorage.setItem('tasks', JSON.stringify(taskList));
+        }
+
+        function renderTasks() {
+            const taskListElement = document.getElementById('taskList');
+            taskListElement.innerHTML = '';
+
+            const sortedTasks = taskList.sort((a, b) => {
+                if (a.completed !== b.completed) return a.completed - b.completed;
+
+                const dateComparison = new Date(a.dueDate) - new Date(b.dueDate);
+                if (dateComparison !== 0) return dateComparison;
+
+                const priorityOrder = { high: 3, medium: 2, low: 1 };
+                return priorityOrder[b.priority] - priorityOrder[a.priority];
+            });
+
+            sortedTasks.forEach((task, index) => {
+                const taskItem = document.createElement('li');
+                const isOverdue = new Date(task.dueDate) < new Date(new Date().setDate(new Date().getDate() - 1));
+                taskItem.className = `task-item ${task.completed ? 'completed' : ''} ${isOverdue && !task.completed ? 'overdue' : ''} ${task.priority}`;
+
+                taskItem.innerHTML = `
+                    <span>${task.name} (Due: ${task.dueDate} | Priority: ${task.priority} | Recurrence: ${task.recurrence})</span>
+                    <div>
+                        <button onclick="toggleComplete(${index})">${task.completed ? 'Undo' : 'Complete'}</button>
+                        <button onclick="editTask(${index})">Edit</button>
+                        <button onclick="deleteTask(${index})">Delete</button>
+                    </div>
+                `;
+
+                taskListElement.appendChild(taskItem);
+            });
+        }
+
+        function addTask() {
+    const taskName = document.getElementById('taskName').value;
+    const taskDueDate = document.getElementById('taskDueDate').value;
+    const taskPriority = document.getElementById('taskPriority').value;
+    const taskRecurrence = document.getElementById('taskRecurrence').value;
+    const taskSubtasks = document.getElementById('taskSubtasks').value;
+
+    if (!taskName || !taskDueDate) {
+        alert('Please fill in all fields.');
+        return;
+    }
+
+    const mainTask = {
+        name: taskName,
+        dueDate: taskDueDate,
+        priority: taskPriority,
+        recurrence: taskRecurrence,
+        completed: false
+    };
+
+    taskList.push(mainTask);
+
+    if (taskSubtasks === 'exam') {
+        const subtaskTemplates = [
+            { name: `${taskName} -Question Paper Preparation`, offset: -3 },
+            { name: `${taskName} -Post Answer Key`, offset: 1 },
+            { name: `${taskName} -Paper Valuation`, offset: 2 },
+            { name: `${taskName} -Mark Upload`, offset: 3 }
+        ];
+
+        const examDate = new Date(taskDueDate);
+        subtaskTemplates.forEach(template => {
+            const subtaskDate = new Date(examDate);
+            subtaskDate.setDate(examDate.getDate() + template.offset);
+
+            taskList.push({
+                name: template.name,
+                dueDate: subtaskDate.toISOString().split('T')[0],
+                priority: taskPriority, // Optionally adjust the priority
+                recurrence: 'none',
+                completed: false
+            });
+        });
+    }
+
+    saveTasks();
+    renderTasks();
+    document.getElementById('taskName').value = '';
+    document.getElementById('taskDueDate').value = '';
+    document.getElementById('taskPriority').value = 'low';
+    document.getElementById('taskRecurrence').value = 'none';
+    document.getElementById('taskSubtasks').value = 'none';
+}
+
+
+
+
+
+        function toggleComplete(index) {
+            taskList[index].completed = !taskList[index].completed;
+            saveTasks();
+            renderTasks();
+        }
+
+        function editTask(index) {
+            const task = taskList[index];
+            const newName = prompt('Edit task name:', task.name);
+            const newDueDate = prompt('Edit due date (YYYY-MM-DD):', task.dueDate);
+            const newPriority = prompt('Edit priority (low, medium, high):', task.priority);
+            const newRecurrence = prompt('Edit recurrence (none, daily, weekly, monthly):', task.recurrence);
+
+            if (newName) task.name = newName;
+            if (newDueDate) task.dueDate = newDueDate;
+            if (newPriority) task.priority = newPriority;
+            if (newRecurrence) task.recurrence = newRecurrence;
+
+            saveTasks();
+            renderTasks();
+        }
+
+        function deleteTask(index) {
+            taskList.splice(index, 1);
+            saveTasks();
+            renderTasks();
+        }
+
+        function handleRecurringTasks() {
+    const today = new Date();
+
+    taskList.forEach(task => {
+        if (!task.recurrence || task.recurrence === 'none') return;
+
+        const taskDueDate = new Date(task.dueDate);
+
+        // Generate tasks for all days missed since the due date
+        while (taskDueDate < today) {
+            if (task.recurrence === 'daily') {
+                taskDueDate.setDate(taskDueDate.getDate() + 1);
+            } else if (task.recurrence === 'weekly') {
+                taskDueDate.setDate(taskDueDate.getDate() + 7);
+            } else if (task.recurrence === 'monthly') {
+                taskDueDate.setMonth(taskDueDate.getMonth() + 1);
+            }
+
+            // Add a copy of the recurring task with updated due date
+            const newTask = { ...task, dueDate: taskDueDate.toISOString().split('T')[0] };
+            taskList.push(newTask);
+        }
+    });
+
+    saveTasks();
+    renderTasks();
+}
+
+
+        setInterval(handleRecurringTasks, 24 * 60 * 60 * 1000); // Run daily
+        renderTasks();
+    </script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js')
+                .then(() => console.log('Service Worker Registered'))
+                .catch(err => console.error('Service Worker Registration Failed:', err));
+        }
+    </script>
+    
+</body>
+</html>
